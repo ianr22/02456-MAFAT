@@ -40,13 +40,32 @@ You will be prompted for your VT password (the same one for canvas/hokiespa)
 Once in, request an interactive session like this (we want to run everything in an interactive session to not consume resources)
 
 ```bash
-interact -A cmda4864fall2025
+interact -A cmda4864fall2025 --gres=gpu:1 --mem=16G
 ```
 
-Once in the interactive session, run 
+This will allow enough emmory and resources for the model to run and modules to load.
+
+Once in the interactive session, change directory to the ```02456-MAFAT``` folder and run 
 
 ```bash
-module load Python
+source setup_scripts.sh
 ```
 
-This will load the latest version of Python on the compute node.
+This wil automatically load the needed modules to run each of the notebooks.
+
+Once run, you need to start the jupyter server using 
+
+```bash
+jupyter lab --no-browser --ip=0.0.0.0 --port=8082
+```
+
+This will initiate the jupyter server that the notebooks will run on. In Visual Studio, 
+hit the select kernel button on the top right of the notebook. Then a prompt will show up 
+on the top search bar, and you will select existing jupyter server. copy this line of the output:
+(under the text Or copy and paste one of these URLs)
+
+```
+http://fal<node>:8082/lab?token=<token_generated_by_server>
+```
+
+into the prompt and hit enter. This will connect the notebook to the server where the notebook can be run. 
