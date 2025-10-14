@@ -24,3 +24,29 @@ git checkout -b <Branchname>
 git push --set-upstream origin <Branchname>
 ```
 You now deleted your old branch, and created a new one and synced it to git
+
+
+# CAPSTONE ARC INSTALL DIRECTIONS
+
+## SETUP
+1. Open terminal and run 
+
+```bash
+ssh <your_pid>@tinkercliffs2.arc.vt.edu
+```
+
+You will be prompted for your VT password (the same one for canvas/hokiespa)
+
+Once in, request an interactive session like this (we want to run everything in an interactive session to not consume resources)
+
+```bash
+interact -A cmda4864fall2025
+```
+
+Once in the interactive session, run 
+
+```bash
+module load Python
+```
+
+This will load the latest version of Python on the compute node.
