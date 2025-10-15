@@ -48,7 +48,7 @@ This will allow enough emmory and resources for the model to run and modules to 
 Once in the interactive session, change directory to the ```02456-MAFAT``` folder and run 
 
 ```bash
-source setup_scripts.sh
+source setup_scripts/load_modules.sh
 ```
 
 This wil automatically load the needed modules to run each of the notebooks.
