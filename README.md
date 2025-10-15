@@ -32,7 +32,7 @@ You now deleted your old branch, and created a new one and synced it to git
 1. Open terminal and run 
 
 ```bash
-ssh <your_pid>@tinkercliffs2.arc.vt.edu
+ssh <your_pid>@falcon1.arc.vt.edu
 ```
 
 You will be prompted for your VT password (the same one for canvas/hokiespa)
