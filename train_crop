@@ -1,0 +1,156 @@
+import pandas as pd
+import os
+import cv2
+import numpy as np
+from tqdm import tqdm
+
+
+# ===== CONFIG =====
+train_csv = './dataset_v2/train.csv'
+image_root = './dataset_v2/root/train'
+output_root = './blurred_train_images'
+
+
+kernel_sizes = [0, 11, 21, 31, 41]   # 0 = original
+level_names = ['Original', 'Blur1', 'Blur2', 'Blur3', 'Blur4']
+
+
+# Define subclass-to-general_class mapping
+large_vehicle_subs = [
+    'truck', 'dedicated agricultural vehicle', 'crane truck', 'prime mover',
+    'cement mixer', 'light truck', 'bus', 'tanker', 'minibus'
+]
+small_vehicle_subs = [
+    'sedan', 'jeep', 'hatchback', 'minivan', 'pickup', 'van'
+]
+
+
+# Define features
+features = [
+    'sunroof', 'luggage_carrier', 'open_cargo_area', 'enclosed_cab',
+    'spare_wheel', 'wrecked', 'flatbed', 'ladder', 'enclosed_box',
+    'soft_shell_box', 'harnessed_to_a_cart', 'ac_vents', 'color'
+]
+
+
+# ===== FUNCTIONS =====
+def crop_polygon(image, coords):
+    """Crop image based on 8 polygon coordinates (4 points) with polygon mask."""
+    h, w = image.shape[:2]
+    pts = np.array(coords, dtype=np.int32).reshape((4, 2))
+   
+    x_min, y_min = np.min(pts, axis=0)
+    x_max, y_max = np.max(pts, axis=0)
+
+
+    # Clip to image bounds
+    x_min, y_min = max(0, x_min), max(0, y_min)
+    x_max, y_max = min(w, x_max), min(h, y_max)
+
+
+    if x_max <= x_min or y_max <= y_min:
+        return None
+
+
+    cropped = image[y_min:y_max, x_min:x_max]
+    pts_cropped = pts - np.array([x_min, y_min])
+
+
+    mask = np.zeros(cropped.shape[:2], dtype=np.uint8)
+    cv2.fillPoly(mask, [pts_cropped], 255)
+    result = cv2.bitwise_and(cropped, cropped, mask=mask)
+    return result
+
+
+def save_cropped_blurred(crop, blur_name, category_type, category_name, image_id, tag_id):
+    """Save the cropped & blurred image to correct category folder."""
+    folder = os.path.join(output_root, blur_name, category_type, category_name)
+    os.makedirs(folder, exist_ok=True)
+    filename = f"{image_id}_{tag_id}.png"
+    cv2.imwrite(os.path.join(folder, filename), crop)
+
+
+# ===== MAIN FUNCTION =====
+def main():
+    df = pd.read_csv(train_csv)
+    df.columns = df.columns.str.strip()  # remove whitespace
+
+
+    # Coordinate columns
+    coord_cols = ['p1_x', 'p_1y', 'p2_x', 'p2_y', 'p3_x', 'p3_y', 'p4_x', 'p4_y']
+    for col in coord_cols:
+        if col not in df.columns:
+            raise ValueError(f"CSV missing column: {col}")
+
+
+    os.makedirs(output_root, exist_ok=True)
+    for name in level_names:
+        for category in ['general_class', 'sub_class', 'features']:
+            os.makedirs(os.path.join(output_root, name, category), exist_ok=True)
+
+
+    image_cache = {}
+
+
+    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Cropping & sorting training images"):
+        image_id = str(int(row['image_id']))
+        tag_id = str(row['tag_id'])
+
+
+        # Load image once and cache it
+        if image_id not in image_cache:
+            for ext in ['.jpg', '.tiff']:
+                image_path = os.path.join(image_root, f"{image_id}{ext}")
+                if os.path.exists(image_path):
+                    image_cache[image_id] = cv2.imread(image_path)
+                    break
+            if image_id not in image_cache:
+                print(f"⚠️ Image not found for ID {image_id}")
+                continue
+        image = image_cache[image_id]
+        if image is None:
+            continue
+
+
+        # Crop
+        coords = row[coord_cols].astype(float).values
+        cropped = crop_polygon(image, coords)
+        if cropped is None or cropped.size == 0:
+            continue
+
+
+        sub_class = str(row['sub_class']).strip().lower()
+
+
+        # Apply blur levels
+        for ksize, blur_name in zip(kernel_sizes, level_names):
+            blurred = cropped if ksize == 0 else cv2.GaussianBlur(cropped, (ksize, ksize), 0)
+
+
+            # --- general_class assignment based on subclass ---
+            if sub_class in small_vehicle_subs:
+                save_cropped_blurred(blurred, blur_name, 'general_class', 'small_vehicle', image_id, tag_id)
+            elif sub_class in large_vehicle_subs:
+                save_cropped_blurred(blurred, blur_name, 'general_class', 'large_vehicle', image_id, tag_id)
+
+
+            # --- sub_class folder ---
+            if pd.notna(sub_class) and sub_class != 'nan':
+                save_cropped_blurred(blurred, blur_name, 'sub_class', sub_class.replace(' ', '_'), image_id, tag_id)
+
+
+            # --- feature folders ---
+            for feat in features:
+                val = row.get(feat)
+                if pd.notna(val) and val == 1:
+                    save_cropped_blurred(blurred, blur_name, 'features', feat, image_id, tag_id)
+
+
+    print("\n✅ All training images processed and categorized successfully in:", output_root)
+
+
+# ===== RUN =====
+if __name__ == "__main__":
+    main()
+
+
