@@ -1,0 +1,48 @@
+Loaded 11617 image records from run run_123030
+Found 37 unique labels
+
+Per-class metrics:
+ac_vents                            | prec=0.973  rec=0.500  f1=0.661  support=72
+color_black                         | prec=0.849  rec=0.310  f1=0.454  support=1158
+color_blue                          | prec=0.620  rec=0.457  f1=0.526  support=742
+color_green                         | prec=0.086  rec=0.320  f1=0.136  support=97
+color_other                         | prec=0.469  rec=0.048  f1=0.087  support=626
+color_red                           | prec=0.650  rec=0.560  f1=0.602  support=414
+color_silver/grey                   | prec=0.748  rec=0.709  f1=0.728  support=3505
+color_white                         | prec=0.681  rec=0.837  f1=0.751  support=4817
+color_yellow                        | prec=0.207  rec=0.097  f1=0.132  support=258
+enclosed_box                        | prec=0.750  rec=0.158  f1=0.261  support=133
+enclosed_cab                        | prec=0.235  rec=0.116  f1=0.156  support=172
+flatbed                             | prec=0.600  rec=0.039  f1=0.073  support=77
+general_class_large vehicle         | prec=0.769  rec=0.223  f1=0.346  support=506
+general_class_small vehicle         | prec=0.966  rec=0.997  f1=0.981  support=11111
+harnessed_to_a_cart                 | prec=1.000  rec=0.250  f1=0.400  support=4
+ladder                              | prec=0.000  rec=0.000  f1=0.000  support=2
+luggage_carrier                     | prec=0.083  rec=0.593  f1=0.145  support=383
+open_cargo_area                     | prec=0.115  rec=0.156  f1=0.132  support=256
+soft_shell_box                      | prec=1.000  rec=0.033  f1=0.065  support=30
+spare_wheel                         | prec=0.084  rec=0.204  f1=0.119  support=181
+sub_class_bus                       | prec=1.000  rec=0.189  f1=0.317  support=53
+sub_class_cement mixer              | prec=1.000  rec=0.059  f1=0.111  support=17
+sub_class_crane truck               | prec=1.000  rec=0.188  f1=0.316  support=16
+sub_class_dedicated agricultural vehicle | prec=0.000  rec=0.000  f1=0.000  support=5
+sub_class_hatchback                 | prec=0.573  rec=0.403  f1=0.473  support=3080
+sub_class_jeep                      | prec=0.150  rec=0.276  f1=0.194  support=865
+sub_class_light truck               | prec=0.349  rec=0.091  f1=0.145  support=164
+sub_class_minibus                   | prec=1.000  rec=0.200  f1=0.333  support=25
+sub_class_minivan                   | prec=0.354  rec=0.089  f1=0.142  support=586
+sub_class_pickup                    | prec=0.153  rec=0.269  f1=0.195  support=435
+sub_class_prime mover               | prec=1.000  rec=0.114  f1=0.204  support=44
+sub_class_sedan                     | prec=0.766  rec=0.483  f1=0.593  support=5783
+sub_class_tanker                    | prec=1.000  rec=0.333  f1=0.500  support=3
+sub_class_truck                     | prec=0.800  rec=0.022  f1=0.043  support=179
+sub_class_van                       | prec=0.625  rec=0.262  f1=0.370  support=362
+sunroof                             | prec=0.534  rec=0.550  f1=0.542  support=853
+wrecked                             | prec=0.469  rec=0.060  f1=0.107  support=881
+
+mAP (mean per-class precision over labels with support > 0): 0.5853
+
+Micro-averaged over all labels:
+  precision = 0.6735
+  recall    = 0.6391
+  f1        = 0.6558
