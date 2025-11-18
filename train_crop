@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 from tqdm import tqdm
+import tifffile
 
 
 # ===== CONFIG =====
@@ -64,7 +65,7 @@ def crop_polygon(image, coords):
 
 def save_cropped_blurred(crop, blur_name, category_type, category_name, image_id, tag_id):
     """Save the cropped & blurred image to correct category folder."""
-    folder = os.path.join(output_root, blur_name, category_type, category_name)
+    folder = os.path.join(output_root, blur_name)
     os.makedirs(folder, exist_ok=True)
     filename = f"{image_id}_{tag_id}.png"
     cv2.imwrite(os.path.join(folder, filename), crop)
@@ -96,21 +97,89 @@ def main():
         image_id = str(int(row['image_id']))
         tag_id = str(row['tag_id'])
 
+        if image_id == "11437" and str(tag_id) == "15582":
+            print("\n=== DEBUG TARGET ROW FOUND ===")
+            print(row)
+            print("Coordinates:", coords)
 
         # Load image once and cache it
         if image_id not in image_cache:
-            for ext in ['.jpg', '.tiff']:
+            found_file = False
+            load_success = False
+
+            for ext in ['.jpg', '.tiff', '.tif']:
                 image_path = os.path.join(image_root, f"{image_id}{ext}")
+
                 if os.path.exists(image_path):
-                    image_cache[image_id] = cv2.imread(image_path)
-                    break
-            if image_id not in image_cache:
-                print(f"⚠️ Image not found for ID {image_id}")
+                    found_file = True
+
+                    # print(f"[INFO] Found file for image_id={image_id}: {image_path}")
+
+                    # TIFF loader
+                    if ext in ['.tiff', '.tif']:
+                        try:
+                            img = tifffile.imread(image_path)
+                            # print(f"    [TIFF] Loaded TIFF shape={img.shape}, dtype={img.dtype}")
+
+                            # Channel handling
+                            if img.ndim == 2:
+                                # print("    [TIFF] Grayscale detected → converting to BGR")
+                                img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+                            elif img.ndim == 3 and img.shape[2] == 4:
+                                # print("    [TIFF] RGBA detected → converting to BGR")
+                                img = cv2.cvtColor(img, cv2.COLOR_RGBA2BGR)
+
+                            elif img.ndim == 3 and img.shape[2] not in (1, 3):
+                                # print(f"    ⚠️ Unexpected TIFF channel count: {img.shape[2]}")
+                                ...
+
+                            image_cache[image_id] = img
+                            load_success = True
+
+                        except Exception as e:
+                            print(f"    ❌ TIFF read error for {image_path}: {e}")
+
+                    # JPG loader
+                    else:
+                        img = cv2.imread(image_path)
+                        if img is None:
+                            print(f"    ❌ cv2.imread returned None for {image_path}")
+                        else:
+                            # print(f"    [JPG] Loaded JPG shape={img.shape}, dtype={img.dtype}")
+                            image_cache[image_id] = img
+                            load_success = True
+
+                    break  # stop after first matching file extension
+
+            # After searching extensions, check outcome
+            if not found_file:
+                print(f"[MISSING FILE] No .jpg/.tiff/.tif found for image_id={image_id} in {image_root}")
                 continue
+
+            if not load_success:
+                print(f"[LOAD FAIL] Could not load any valid image for image_id={image_id}")
+                continue
+
+        # Retrieve image from cache
         image = image_cache[image_id]
+
+        # Validate image shape
         if image is None:
+            print(f"[CACHE ERROR] Cached image is None for {image_id}")
             continue
 
+        if not isinstance(image, np.ndarray):
+            print(f"[CACHE ERROR] Cached object for {image_id} is not a numpy array: {type(image)}")
+            continue
+
+        if image.ndim not in (2, 3):
+            print(f"[SHAPE ERROR] Invalid image dims for {image_id}: shape={image.shape}")
+            continue
+
+        if image.ndim == 3 and image.shape[2] not in (1, 3):
+            print(f"[CHANNEL ERROR] Unexpected channel count for {image_id}: shape={image.shape}")
+            continue
 
         # Crop
         coords = row[coord_cols].astype(float).values
