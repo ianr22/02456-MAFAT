@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1                       # Number of tasks
 #SBATCH --cpus-per-task=1                # CPU cores per task
 #SBATCH --mem=32G                        # Memory per node
-#SBATCH --time=02:00:00                  # Time limit hrs:min:sec
+#SBATCH --time=01:00:00                  # Time limit hrs:min:sec
 #SBATCH --gres=gpu:1                     # Number of GPUs
 #SBATCH -A cmda4864fall2025              # Account name
 
@@ -88,8 +88,9 @@ if [ $NUM_WORKERS -lt 1 ]; then
 fi
 
 # Configuration - ADJUST THESE PATHS FOR YOUR SETUP
+BLUR_LEVEL="Blur4"
 CSV_PATH="./dataset_v2/train.csv"
-IMAGE_PATH="./dataset_v2/root/train/cropped/"
+IMAGE_PATH="./blurred_train_images/${BLUR_LEVEL}"
 MODEL_PATH="./models/100epochs-CPAB-bceloss-lr0.01-momentum0.9.pt"
 OUTPUT_DIR="./results/run_${SLURM_JOB_ID}"
 BATCH_SIZE=64
@@ -101,6 +102,7 @@ mkdir -p "$OUTPUT_DIR"
 echo "========================================================================"
 echo "Prediction Configuration"
 echo "========================================================================"
+echo "Blur Level:     $BLUR_LEVEL"
 echo "CSV Path:       $CSV_PATH"
 echo "Image Path:     $IMAGE_PATH"
 echo "Model Path:     $MODEL_PATH"
