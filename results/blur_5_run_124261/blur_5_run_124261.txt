@@ -1,0 +1,54 @@
+blur_5_run_124261/predictions_with_scores.json
+Loading JSON from: blur_5_run_124261/predictions_with_scores.json
+Loaded 11617 image records from run blur_5_run_124261
+Found 37 labels
+
+==============================
+   TRUE mAP = 0.539404
+==============================
+
+ac_vents                                  AP = 0.925568
+color_black                               AP = 0.682243
+color_blue                                AP = 0.707859
+color_green                               AP = 0.405414
+color_other                               AP = 0.146930
+color_red                                 AP = 0.944838
+color_silver/grey                         AP = 0.812695
+color_white                               AP = 0.871611
+color_yellow                              AP = 0.902093
+enclosed_box                              AP = 0.537472
+enclosed_cab                              AP = 0.138202
+flatbed                                   AP = 0.285981
+general_class_large vehicle               AP = 0.742026
+general_class_small vehicle               AP = 0.997527
+harnessed_to_a_cart                       AP = 0.650121
+ladder                                    AP = 0.666667
+luggage_carrier                           AP = 0.144544
+open_cargo_area                           AP = 0.143201
+soft_shell_box                            AP = 0.235187
+spare_wheel                               AP = 0.097791
+sub_class_bus                             AP = 0.859581
+sub_class_cement mixer                    AP = 0.793109
+sub_class_crane truck                     AP = 0.664211
+sub_class_dedicated agricultural vehicle  AP = 0.711403
+sub_class_hatchback                       AP = 0.564992
+sub_class_jeep                            AP = 0.154973
+sub_class_light truck                     AP = 0.271311
+sub_class_minibus                         AP = 0.861667
+sub_class_minivan                         AP = 0.179541
+sub_class_pickup                          AP = 0.178867
+sub_class_prime mover                     AP = 0.572860
+sub_class_sedan                           AP = 0.785527
+sub_class_tanker                          AP = 0.575964
+sub_class_truck                           AP = 0.366764
+sub_class_van                             AP = 0.470050
+sunroof                                   AP = 0.634359
+wrecked                                   AP = 0.274778
+
+==============================
+       GROUPED mAP
+==============================
+General Class    mAP = 0.869777  (n=2)
+Sub-Class        mAP = 0.534055  (n=15)
+Color            mAP = 0.684211  (n=8)
+Features         mAP = 0.394489  (n=12)

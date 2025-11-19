@@ -1,16 +1,39 @@
 import json
-import numpy as np
+import os
+import sys
 from pathlib import Path
+import numpy as np
+
+# =============================
+# VARIABLES & RUN PATH HANDLING
+# =============================
+
+# Default run folder
+run_path = "run_124216"
+
+# If user passes a run folder, override default
+if len(sys.argv) >= 2:
+    run_path = sys.argv[1]
+else:
+    print("Filepath not entered, defaulting to 124216")
+
+# Path: run_X/predictions_with_scores.json (relative to current dir)
+json_path = Path(os.path.join(run_path, "predictions_with_scores.json"))
+print(json_path)
+
+print(f"Loading JSON from: {json_path}")
+
+if not json_path.exists():
+    print(f"ERROR: File not found at {json_path}")
+    sys.exit(1)
 
 # -------------------------------
 # Load JSON
 # -------------------------------
-json_path = Path("predictions_with_scores.json")  # change path as needed
-
 with json_path.open("r", encoding="utf-8") as f:
     records = json.load(f)
 
-print(f"Loaded {len(records)} samples")
+print(f"Loaded {len(records)} image records from run {run_path}")
 
 # -------------------------------
 # Collect all labels
@@ -78,10 +101,10 @@ print("==============================\n")
 for lbl, ap in sorted(aps.items()):
     print(f"{lbl:40s}  AP = {ap:.6f}")
 
+
 # --------------------------------------------------------
 # GROUP DEFINITIONS (COFGA categories)
 # --------------------------------------------------------
-
 general_class_labels = [lbl for lbl in all_labels if lbl.startswith("general_class_")]
 sub_class_labels     = [lbl for lbl in all_labels if lbl.startswith("sub_class_")]
 color_labels         = [lbl for lbl in all_labels if lbl.startswith("color_")]
