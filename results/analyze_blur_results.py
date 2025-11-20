@@ -249,6 +249,11 @@ def plot_score_distributions_by_blur(results_dir, out_dir, levels):
 
 def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
     os.makedirs(out_dir, exist_ok=True)
+    
+    # Map blur levels to sigma values
+    num_levels = 12
+    sigmas = np.linspace(0.0, 4.0, num_levels)
+    blur_to_sigma = {i: sigmas[i] for i in range(num_levels)}
 
     label_set = set()
     label_counts = Counter()
@@ -382,7 +387,9 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
         if idx == 0:
             first_mappable = heatmap.collections[0]
 
-        ax.set_title(f'Blur {blur_level}', fontsize=14, pad=10)
+        # Get sigma value for this blur level
+        sigma_value = blur_to_sigma.get(blur_level, blur_level)
+        ax.set_title(f'σ = {sigma_value:.2f}', fontsize=14, pad=10)
         
         # Special handling for different blur levels
         if idx == 0:  # Blur 0: show only y-axis, hide x-axis completely
