@@ -157,6 +157,65 @@ print("  -> cm_<label>.png files created.")
 # Grouped plots with more readable labels
 
 
+def large_label_only(label: str) -> str:
+    """Return only the large subclass name for sub_class_ labels.
+
+    Examples:
+    - 'sub_class_largeA_ind1' -> 'largeA'
+    - 'sub_class_largeB-small' -> 'largeB'
+    - otherwise falls back to `short_label`.
+    """
+    import re
+    if label.startswith("sub_class_"):
+        s = label[len("sub_class_"):]
+        token = re.split(r"[_\-\s:]+", s)[0]
+        return token
+    return short_label(label)
+
+
+def draw_selected_confusion_matrices(idxs, labels_list, out_name="selected"):
+    """Draw a 2x2 grid of per-class 2x2 confusion matrices for given label indices.
+
+    The titles use the large subclass name (no individual/suffix part) when
+    available (e.g. for `sub_class_...`). Saves a single PNG with four squares.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(9, 9))
+    axes = axes.flatten()
+    for ax, idx in zip(axes, idxs):
+        lbl = labels_list[idx]
+        stats = per_class[lbl]
+        cm = np.array([
+            [stats["tn"], stats["fp"]],
+            [stats["fn"], stats["tp"]],
+        ])
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=["Pred 0", "Pred 1"],
+            yticklabels=["GT 0", "GT 1"],
+            ax=ax,
+            cbar=False,
+            linewidths=0.5,
+            linecolor='gray',
+        )
+        ax.set_title(large_label_only(lbl), fontsize=12)
+        ax.tick_params(axis='both', which='major', labelsize=10)
+
+    # If fewer than 4 indices were provided, hide extras
+    if len(idxs) < 4:
+        for ax in axes[len(idxs):]:
+            ax.set_visible(False)
+
+    plt.suptitle(f"Confusion Matrices ({', '.join(map(str, idxs))})", fontsize=14)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    save_path = os.path.join(custom_save_dir, f"cm_{out_name}_{'_'.join(map(str, idxs))}.png")
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+    print(f"Saved selected confusion matrices: {save_path}")
+
+
 def label_group(lbl: str) -> str:
     if lbl.startswith("general_class_"):
         return "general_class"
@@ -214,6 +273,19 @@ save_path = os.path.join(custom_save_dir, "confusion_matrix_top10.png")
 plt.savefig(save_path, dpi=300)
 plt.close()
 print(f"Saved top-10 integrated confusion matrix: {save_path}")
+
+# Draw selected 2x2 confusion matrices for label indices 0,3,8,11
+try:
+    selected_idxs = [0, 3, 8, 11]
+    # Guard against index errors
+    max_idx = len(all_labels) - 1
+    selected_idxs = [i for i in selected_idxs if 0 <= i <= max_idx]
+    if selected_idxs:
+        draw_selected_confusion_matrices(selected_idxs, all_labels, out_name="0_3_8_11")
+    else:
+        print("No valid indices found for selected confusion matrices (0,3,8,11)")
+except Exception as e:
+    print(f"Error while creating selected confusion matrices: {e}")
 
 # Precision vs Recall (scatter per group) 
 
