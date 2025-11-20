@@ -21,10 +21,6 @@ def extract_fields(entry):
     """Given a dict entry, attempt to extract (y_true, y_pred, score).
     Returns tuple where each element can be None if not present.
     """
-    # keep the old extractor for single-label scalar cases but prefer
-    # multi-label keys (pred, true, pred_scores) handled in analyze_file.
-    # This function is retained for backward compatibility but not used
-    # for the standard MAFAT JSON format.
     return None, None, None
 
 
@@ -33,7 +29,6 @@ def load_json_file(path):
         try:
             data = json.load(f)
         except Exception:
-            # fallback: try reading line by line JSON objects
             data = []
             f.seek(0)
             for line in f:
@@ -50,7 +45,6 @@ def load_json_file(path):
 def analyze_file(path, out_dir, blur_level):
     print(f"Loading {path} for blur {blur_level}")
     data = load_json_file(path)
-    # Expecting multi-label JSON with keys like: 'true' (list), 'pred' (list), 'pred_scores' (dict)
     top_preds = []
     top_scores = []
     first_true = []
@@ -78,7 +72,7 @@ def analyze_file(path, out_dir, blur_level):
                 except Exception:
                     top_score = np.nan
         elif isinstance(scores, dict) and len(scores) > 0:
-            # choose argmax of pred_scores
+         
             try:
                 top_label = max(scores.items(), key=lambda x: float(x[1]))[0]
                 top_score = float(scores[top_label])
@@ -102,8 +96,6 @@ def analyze_file(path, out_dir, blur_level):
         top_scores.append(top_score)
         first_true.append(true_first)
 
-    # convert to arrays for plotting
-    # filter only entries where we have a first_true (otherwise cannot compute confusion)
     indices = [i for i, t in enumerate(first_true) if t is not None and top_preds[i] is not None]
     if len(indices) == 0:
         print(f"  No matching top-prediction / true-label pairs in {path}; skipping.")
@@ -157,10 +149,10 @@ def find_json_for_blur(results_dir, level):
     pattern = os.path.join(results_dir, f"blur_{level}_run_*", "predictions_with_scores.json")
     matches = glob.glob(pattern)
     if not matches:
-        # try without run folder
+       
         alternate = os.path.join(results_dir, f"blur_{level}", "predictions_with_scores.json")
         matches = glob.glob(alternate)
-    # return first match
+  
     return matches[0] if matches else None
 
 def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
@@ -258,7 +250,6 @@ def plot_score_distributions_by_blur(results_dir, out_dir, levels):
 def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
     os.makedirs(out_dir, exist_ok=True)
 
-    # ---------- 1) collect global subclass label set ----------
     label_set = set()
     for blur_level in levels:
         path = find_json_for_blur(results_dir, blur_level)
@@ -292,7 +283,7 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
 
     labels = sorted(label_set)
 
-    # ---------- 2) grid of confusion matrices ----------
+  
     n_levels = len(levels)
     ncols = 2
     nrows = math.ceil(n_levels / ncols)
@@ -351,48 +342,76 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
 
         cm = confusion_matrix(trues, preds, labels=labels, normalize='true')
 
+        # draw heatmap without per-axis ticklabels; we'll add shared labels across the grid
         sns.heatmap(
             cm,
             ax=ax,
             cmap='YlOrBr',
             cbar=False,
-            xticklabels=labels,
-            yticklabels=labels,
+            xticklabels=False,
+            yticklabels=False,
             square=True,
         )
 
         ax.set_title(f'Blur {blur_level}', fontsize=12)
 
-    # ---------- 3) show labels only on left column & bottom row ----------
-    for i, ax in enumerate(axes[:n_levels]):
-        row = i // ncols
-        col = i % ncols
-
-        # x-axis labels only on bottom row
-        if row == nrows - 1:
-            ax.set_xticklabels(labels, rotation=90, fontsize=6)
-        else:
-            ax.set_xticklabels([])
-        ax.set_xlabel('')
-
-        # y-axis labels only on left column
-        if col == 0:
-            ax.set_yticklabels(labels, rotation=0, fontsize=6)
-        else:
-            ax.set_yticklabels([])
-        ax.set_ylabel('')
-
-    # turn off any unused axes
     for ax in axes[n_levels:]:
         ax.axis('off')
+    N = len(labels)
+    if N > 0:
+        # choose larger margins so labels have room (adjustable)
+        left_margin = 0.10
+        bottom_margin = 0.11
+        top_margin = 0.95
+        right_margin = 0.98
 
-    # global axis labels like in your sketch
-    fig.text(0.5, 0.02, 'Predicted', ha='center', fontsize=16)
-    fig.text(0.02, 0.5, 'True', va='center', rotation='vertical', fontsize=16)
+        # apply margins for subplots area
+        fig.subplots_adjust(left=left_margin, right=right_margin, bottom=bottom_margin, top=top_margin, wspace=0.3, hspace=0.3)
 
-    fig.tight_layout(rect=[0.08, 0.08, 0.98, 0.98])
+        # prepare pretty/short labels
+        def pretty_label(lab: str) -> str:
+            for p in ("general_class_", "sub_class_", "color_"):
+                if lab.startswith(p):
+                    lab = lab[len(p):]
+                    break
+            lab = lab.replace("_", " ").replace("-", " ")
+            if len(lab) > 24:
+                lab = lab[:21] + "..."
+            return lab
+
+        short_labels = [pretty_label(l) for l in labels]
+
+        # left label axis (vertical). If many labels, split into two columns.
+        left_width = left_margin - 0.03
+        height = top_margin - bottom_margin
+      
+        left_ax = fig.add_axes([0.01, bottom_margin, left_width, height])
+        left_ax.set_xlim(0, 1)
+        left_ax.set_ylim(0, 1)
+        left_ax.invert_yaxis()
+        left_ax.set_xticks([])
+
+        left_ax.set_yticks(np.linspace(0, 1, N))
+    
+        font_sz = 10 if N <= 20 else (9 if N <= 30 else 8)
+        left_ax.set_yticklabels(short_labels, fontsize=font_sz)
+        left_ax.tick_params(axis='y', which='major', pad=6)
+        for spine in left_ax.spines.values():
+            spine.set_visible(False)
+
+        bottom_ax = fig.add_axes([left_margin, 0.02, right_margin - left_margin, bottom_margin - 0.04])
+        bottom_ax.set_xlim(0, 1)
+        bottom_ax.set_ylim(0, 1)
+        bottom_ax.set_yticks([])
+        bottom_ax.set_xticks(np.linspace(0, 1, N))
+        bottom_ax.set_xticklabels(short_labels, rotation=45, ha='right', fontsize=8)
+        bottom_ax.tick_params(axis='x', which='major', pad=6)
+        for spine in bottom_ax.spines.values():
+            spine.set_visible(False)
+
     out_path = os.path.join(out_dir, 'confusion_blur_0_3_8_11_grid.png')
-    fig.savefig(out_path, dpi=300)
+  
+    fig.savefig(out_path, dpi=300, bbox_inches='tight', pad_inches=0.2)
     plt.close(fig)
     print(f"Saved grid of confusion matrices -> {out_path}")
 
