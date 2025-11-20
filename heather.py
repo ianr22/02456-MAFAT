@@ -3,31 +3,35 @@ import os
 import cv2
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
 
 # ===== CONFIG =====
-test_csv = './dataset_v2/test.csv'
-image_root = './dataset_v2/root/test'
-output_root = './blurred_test_images'
-kernel_sizes = [0, 11, 21, 31, 41]   # 0 = original
-level_names = ['Original', 'Blur1', 'Blur2', 'Blur3', 'Blur4']
+train_csv = './dataset_v2/train.csv'
+image_root = './dataset_v2/root/train'
+output_root = './blurred_train_images_12'
+os.makedirs(output_root, exist_ok=True)
+
+
+# ===== SIGMA BLUR SETTINGS =====
+num_levels = 12                 # blur_0 → blur_11
+sigmas = np.linspace(0.0, 4.0, num_levels)
+
+
+# ===== METADATA STORAGE =====
+metadata_records = []
 
 
 # ===== FUNCTIONS =====
 def crop_polygon(image, coords):
-    """
-    Crop an image based on 8 polygon coordinates (4 points).
-    Returns cropped region with alpha mask applied to polygon shape.
-    """
     h, w = image.shape[:2]
     pts = np.array(coords, dtype=np.int32).reshape((4, 2))
-   
-    # Compute bounding box for polygon
+
+
     x_min, y_min = np.min(pts, axis=0)
     x_max, y_max = np.max(pts, axis=0)
 
 
-    # Clip to image dimensions
     x_min, y_min = max(0, x_min), max(0, y_min)
     x_max, y_max = min(w, x_max), min(h, y_max)
 
@@ -36,97 +40,125 @@ def crop_polygon(image, coords):
         return None
 
 
-    # Crop region of interest
     cropped = image[y_min:y_max, x_min:x_max]
-   
-    # Adjust polygon coordinates relative to crop
     pts_cropped = pts - np.array([x_min, y_min])
-   
-    # Create mask for polygon
+
+
     mask = np.zeros(cropped.shape[:2], dtype=np.uint8)
     cv2.fillPoly(mask, [pts_cropped], 255)
-   
-    # Apply mask to crop
     result = cv2.bitwise_and(cropped, cropped, mask=mask)
     return result
 
 
-# ===== MAIN FUNCTION =====
+
+
+# ===== MAIN =====
 def main():
-    df = pd.read_csv(test_csv)
-    df.columns = df.columns.str.strip()  # clean up whitespace
+    df = pd.read_csv(train_csv)
+    df.columns = df.columns.str.strip()
 
 
-    # Correct coordinate column names
     coord_cols = ['p1_x', 'p_1y', 'p2_x', 'p2_y', 'p3_x', 'p3_y', 'p4_x', 'p4_y']
     for col in coord_cols:
         if col not in df.columns:
             raise ValueError(f"CSV missing column: {col}")
 
 
-    # Ensure output directories exist
-    os.makedirs(output_root, exist_ok=True)
-    for name in level_names:
-        os.makedirs(os.path.join(output_root, name), exist_ok=True)
+    # Pre-create blur folders
+    for i in range(num_levels):
+        os.makedirs(os.path.join(output_root, f"blur_{i}"), exist_ok=True)
 
 
-    # Cache loaded images (for images with multiple annotations)
     image_cache = {}
 
 
-    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Cropping & blurring test objects"):
+    for idx, row in tqdm(df.iterrows(), total=len(df), desc="Cropping and blurring images"):
+
+
         image_id = str(int(row['image_id']))
-        tag_id = str(row['tag_id']) if 'tag_id' in df.columns else f"{idx}"
+        tag_id = str(row['tag_id'])
 
 
-        # Try both jpg and tiff
-        image_path_jpg = os.path.join(image_root, f"{image_id}.jpg")
-        image_path_tiff = os.path.join(image_root, f"{image_id}.tiff")
-
-
+        # ---------- Robust image loading ----------
         if image_id not in image_cache:
-            if os.path.exists(image_path_jpg):
-                image = cv2.imread(image_path_jpg)
-            elif os.path.exists(image_path_tiff):
-                image = cv2.imread(image_path_tiff)
-            else:
-                print(f"⚠️ Image not found for ID {image_id}")
+            loaded = False
+            for ext in ['.jpg', '.jpeg', '.tif', '.tiff', '.png']:
+                image_path = os.path.join(image_root, f"{image_id}{ext}")
+                if not os.path.exists(image_path):
+                    continue
+
+
+                img = cv2.imread(image_path)
+                if img is None:
+                    try:
+                        pil_img = Image.open(image_path).convert("RGB")
+                        img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+                    except:
+                        continue
+
+
+                image_cache[image_id] = img
+                loaded = True
+                break
+
+
+            if not loaded:
+                print(f"⚠️ Could not load image {image_id}")
                 continue
-            image_cache[image_id] = image
-        else:
-            image = image_cache[image_id]
 
 
-        if image is None:
-            continue
+        image = image_cache[image_id]
 
 
-        # Extract polygon coordinates
+        # ---------- Crop the vehicle ----------
         coords = row[coord_cols].astype(float).values
         cropped = crop_polygon(image, coords)
         if cropped is None or cropped.size == 0:
             continue
 
 
-        # Apply blur levels
-        for ksize, name in zip(kernel_sizes, level_names):
-            if ksize == 0:
+        # ---------- Apply sigma blur levels ----------
+        for i, sigma in enumerate(sigmas):
+
+
+            if sigma == 0:
                 blurred = cropped
             else:
-                blurred = cv2.GaussianBlur(cropped, (ksize, ksize), 0)
+                blurred = cv2.GaussianBlur(cropped, (0, 0), sigmaX=sigma, sigmaY=sigma)
 
 
-            # Save crop per tag
-            out_filename = f"{image_id}_{tag_id}.png"
-            out_path = os.path.join(output_root, name, out_filename)
-            cv2.imwrite(out_path, blurred)
+            blur_folder = os.path.join(output_root, f"blur_{i}")
+            filename = f"{image_id}_{tag_id}.jpg"
+            save_path = os.path.join(blur_folder, filename)
 
 
-    print("\n✅ All test objects processed and saved with blur levels in:", output_root)
+            success = cv2.imwrite(save_path, blurred, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+            if not success:
+                print(f"⚠️ Failed to save {save_path}")
+                continue
+
+
+            # Add metadata record
+            metadata_records.append({
+                "image_id": image_id,
+                "tag_id": tag_id,
+                "filename": filename,
+                "blur_level": i,
+                "sigma": float(sigma),
+                "output_path": save_path
+            })
+
+
+    # ===== Save metadata =====
+    df_out = pd.DataFrame(metadata_records)
+    df_out.to_csv("processed_blurred_metadata.csv", index=False)
+
+
+    print("✅ Processing complete. Metadata saved to processed_blurred_metadata.csv")
+
+
 
 
 # ===== RUN =====
 if __name__ == "__main__":
     main()
-
-

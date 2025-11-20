@@ -1,19 +1,20 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
-# Filenames and corresponding TRUE mAP values
-file_labels = [
-    "blur_0", "blur_1", "blur_2", "blur_3", "blur_4", "blur_5",
-    "blur_6", "blur_7", "blur_8", "blur_9", "blur_10", "blur_11"
-]
+# Sigma values for 12 blur levels
+num_levels = 12
+sigmas = np.linspace(0.0, 4.0, num_levels)
+
+# Corresponding TRUE mAP values
 true_map = [
     0.920227, 0.916559, 0.830171, 0.732030, 0.644382, 0.539404,
     0.458399, 0.388370, 0.315836, 0.260169, 0.223833, 0.198565
 ]
 
 plt.figure(figsize=(9,5))
-plt.plot(file_labels, true_map, marker='o', linestyle='-')
-plt.title("TRUE mAP of 12 Blur Runs")
-plt.xlabel("Run File")
+plt.plot(sigmas, true_map, marker='o', linestyle='-')
+plt.title("TRUE mAP vs Gaussian Blur Sigma")
+plt.xlabel("Sigma (Gaussian Blur)")
 plt.ylabel("TRUE mAP")
 plt.ylim(0, 1)
 plt.grid(True)
