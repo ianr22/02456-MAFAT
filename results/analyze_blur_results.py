@@ -9,6 +9,7 @@ import glob
 import json
 import argparse
 from collections import Counter
+import math
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -253,12 +254,11 @@ def plot_score_distributions_by_blur(results_dir, out_dir, levels):
     plt.close()
     print(f"Saved blur-level score distributions -> {os.path.join(out_dir, 'score_distributions_by_blur.png')}")
     
-import math
 
-def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
+def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
     os.makedirs(out_dir, exist_ok=True)
 
-    # ----- pass 1: collect the union of all subclass labels -----
+    # ---------- 1) collect global subclass label set ----------
     label_set = set()
     for blur_level in levels:
         path = find_json_for_blur(results_dir, blur_level)
@@ -272,7 +272,7 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
             pr = rec.get('pred') or rec.get('predictions') or rec.get('prediction')
             scores = rec.get('pred_scores') or rec.get('scores') or rec.get('probs')
 
-            # first true label
+            # true labels
             if isinstance(tr, list) and tr:
                 label_set.update(tr)
             elif isinstance(tr, str):
@@ -290,21 +290,19 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
             if top_label is not None:
                 label_set.add(top_label)
 
-    if not label_set:
-        print("No labels found; skipping grid confusion plot.")
-        return
-
     labels = sorted(label_set)
 
-    # ----- pass 2: make one CM per blur level -----
+    # ---------- 2) grid of confusion matrices ----------
     n_levels = len(levels)
-    ncols = 4
+    ncols = 2
     nrows = math.ceil(n_levels / ncols)
 
     fig, axes = plt.subplots(
         nrows=nrows,
         ncols=ncols,
-        figsize=(4.5 * ncols, 4.5 * nrows)
+        figsize=(5 * ncols, 5 * nrows),
+        sharex=True,
+        sharey=True,
     )
     axes = np.array(axes).reshape(-1)
 
@@ -321,6 +319,7 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
         for rec in data:
             if not isinstance(rec, dict):
                 continue
+
             tr = rec.get('true') or rec.get('ground_truth') or rec.get('gt')
             pr = rec.get('pred') or rec.get('predictions') or rec.get('prediction')
             scores = rec.get('pred_scores') or rec.get('scores') or rec.get('probs')
@@ -359,243 +358,43 @@ def plot_confusion_matrices_by_blur(results_dir, out_dir, levels):
             cbar=False,
             xticklabels=labels,
             yticklabels=labels,
-            square=True
-        )
-        ax.set_title(f'Blur {blur_level}', fontsize=10)
-        ax.set_xlabel('Predicted', fontsize=8)
-        ax.set_ylabel('True', fontsize=8)
-
-        # make tick labels readable
-        ax.tick_params(axis='x', labelrotation=90, labelsize=6)
-        ax.tick_params(axis='y', labelrotation=0, labelsize=6)
-
-    # turn off any unused axes (if levels < nrows * ncols)
-    for ax in axes[len(levels):]:
-        ax.axis('off')
-
-    fig.tight_layout()
-    out_path = os.path.join(out_dir, 'all_levels_confusion_grid.png')
-    fig.savefig(out_path, dpi=300)
-    plt.close(fig)
-    print(f"Saved grid of confusion matrices -> {out_path}")
-
-def plot_confusion_matrices_by_blur(results_dir, out_dir, levels, TOP_K=8):
-    os.makedirs(out_dir, exist_ok=True)
-
-    n_levels = len(levels)
-    ncols = 2
-    nrows = math.ceil(n_levels / ncols)
-
-    fig, axes = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=(4 * ncols, 4 * nrows)
-    )
-    axes = np.array(axes).reshape(-1)
-
-    for idx, blur_level in enumerate(levels):
-        ax = axes[idx]
-        path = find_json_for_blur(results_dir, blur_level)
-        if not path:
-            ax.axis('off')
-            continue
-
-        data = load_json_file(path)
-        trues, preds = [], []
-
-        for rec in data:
-            if not isinstance(rec, dict):
-                continue
-
-            tr = rec.get('true') or rec.get('ground_truth') or rec.get('gt')
-            pr = rec.get('pred') or rec.get('predictions') or rec.get('prediction')
-            scores = rec.get('pred_scores') or rec.get('scores') or rec.get('probs')
-
-            # top predicted label
-            top_label = None
-            if isinstance(pr, list) and pr:
-                top_label = pr[0]
-            elif isinstance(scores, dict) and scores:
-                try:
-                    top_label = max(scores, key=lambda k: float(scores[k]))
-                except Exception:
-                    top_label = None
-
-            # first true label
-            true_first = None
-            if isinstance(tr, list) and tr:
-                true_first = tr[0]
-            elif isinstance(tr, str):
-                true_first = tr
-
-            if top_label is not None and true_first is not None:
-                preds.append(top_label)
-                trues.append(true_first)
-
-        if not trues:
-            ax.axis('off')
-            continue
-
-        # ---- pick the most common labels for THIS blur level ----
-        label_counts = Counter(trues + preds)
-        top_labels = [lbl for lbl, _ in label_counts.most_common(TOP_K)]
-
-        # confusion matrix restricted to those labels
-        cm = confusion_matrix(trues, preds, labels=top_labels, normalize='true')
-
-        sns.heatmap(
-            cm,
-            ax=ax,
-            cmap='YlOrBr',
-            cbar=False,
-            xticklabels=top_labels,
-            yticklabels=top_labels,
-            square=True
+            square=True,
         )
 
-        ax.set_title(f'Blur {blur_level}', fontsize=10)
+        ax.set_title(f'Blur {blur_level}', fontsize=12)
+
+    # ---------- 3) show labels only on left column & bottom row ----------
+    for i, ax in enumerate(axes[:n_levels]):
+        row = i // ncols
+        col = i % ncols
+
+        # x-axis labels only on bottom row
+        if row == nrows - 1:
+            ax.set_xticklabels(labels, rotation=90, fontsize=6)
+        else:
+            ax.set_xticklabels([])
         ax.set_xlabel('')
-        ax.set_ylabel('')
 
-        # make the few labels readable
-        ax.tick_params(axis='x', labelrotation=90, labelsize=6)
-        ax.tick_params(axis='y', labelrotation=0, labelsize=6)
+        # y-axis labels only on left column
+        if col == 0:
+            ax.set_yticklabels(labels, rotation=0, fontsize=6)
+        else:
+            ax.set_yticklabels([])
+        ax.set_ylabel('')
 
     # turn off any unused axes
-    for ax in axes[len(levels):]:
+    for ax in axes[n_levels:]:
         ax.axis('off')
 
-    fig.tight_layout()
-    out_path = os.path.join(out_dir, 'confusion_blur_0_3_8_11_top_labels.png')
-    fig.savefig(out_path, dpi=300)
-    plt.close(fig)
-    print(f"Saved grid of confusion matrices -> {out_path}")
-    
-    os.makedirs(out_dir, exist_ok=True)
+    # global axis labels like in your sketch
+    fig.text(0.5, 0.02, 'Predicted', ha='center', fontsize=16)
+    fig.text(0.02, 0.5, 'True', va='center', rotation='vertical', fontsize=16)
 
-    # ---------- 1) collect the union of all class labels ----------
-    label_set = set()
-    for blur_level in levels:
-        path = find_json_for_blur(results_dir, blur_level)
-        if not path:
-            continue
-        data = load_json_file(path)
-        for rec in data:
-            if not isinstance(rec, dict):
-                continue
-            tr = rec.get('true') or rec.get('ground_truth') or rec.get('gt')
-            pr = rec.get('pred') or rec.get('predictions') or rec.get('prediction')
-            scores = rec.get('pred_scores') or rec.get('scores') or rec.get('probs')
-
-            # first true label
-            if isinstance(tr, list) and tr:
-                label_set.update(tr)
-            elif isinstance(tr, str):
-                label_set.add(tr)
-
-            # top predicted label
-            top_label = None
-            if isinstance(pr, list) and pr:
-                top_label = pr[0]
-            elif isinstance(scores, dict) and scores:
-                try:
-                    top_label = max(scores, key=lambda k: float(scores[k]))
-                except Exception:
-                    top_label = None
-            if top_label is not None:
-                label_set.add(top_label)
-
-    labels = sorted(label_set)
-
-    # ---------- 2) make a CM for each blur level ----------
-    n_levels = len(levels)
-    ncols = 2
-    nrows = math.ceil(n_levels / ncols)
-
-    fig, axes = plt.subplots(
-        nrows=nrows,
-        ncols=ncols,
-        figsize=(5 * ncols, 5 * nrows)
-    )
-    axes = np.array(axes).reshape(-1)
-
-    for idx, blur_level in enumerate(levels):
-        ax = axes[idx]
-        path = find_json_for_blur(results_dir, blur_level)
-        if not path:
-            ax.axis('off')
-            continue
-
-        data = load_json_file(path)
-        trues, preds = [], []
-
-        for rec in data:
-            if not isinstance(rec, dict):
-                continue
-
-            tr = rec.get('true') or rec.get('ground_truth') or rec.get('gt')
-            pr = rec.get('pred') or rec.get('predictions') or rec.get('prediction')
-            scores = rec.get('pred_scores') or rec.get('scores') or rec.get('probs')
-
-            # top predicted label
-            top_label = None
-            if isinstance(pr, list) and pr:
-                top_label = pr[0]
-            elif isinstance(scores, dict) and scores:
-                try:
-                    top_label = max(scores, key=lambda k: float(scores[k]))
-                except Exception:
-                    top_label = None
-
-            # first true label
-            true_first = None
-            if isinstance(tr, list) and tr:
-                true_first = tr[0]
-            elif isinstance(tr, str):
-                true_first = tr
-
-            if top_label is not None and true_first is not None:
-                preds.append(top_label)
-                trues.append(true_first)
-
-        if not trues:
-            ax.axis('off')
-            continue
-
-        # each square = confusion matrix for this blur level
-        cm = confusion_matrix(trues, preds, labels=labels, normalize='true')
-
-        sns.heatmap(
-            cm,
-            ax=ax,
-            cmap='YlOrBr',
-            cbar=False,
-            xticklabels=False,   # no class names
-            yticklabels=False,   # no class names
-            square=True
-        )
-
-        # show only the panel title
-        ax.set_title(f'Blur {blur_level}', fontsize=12)
-        ax.set_xlabel('')
-        ax.set_ylabel('')
-        ax.tick_params(left=False, bottom=False)
-
-    # hide any unused axes
-    for ax in axes[len(levels):]:
-        ax.axis('off')
-
-    # ---------- global axis labels for the whole grid ----------
-    fig.text(0.5, 0.03, 'Predicted', ha='center', fontsize=16)
-    fig.text(0.03, 0.5, 'True', va='center', rotation='vertical', fontsize=16)
-
-    fig.tight_layout(rect=[0.06, 0.06, 0.98, 0.98])
-
+    fig.tight_layout(rect=[0.08, 0.08, 0.98, 0.98])
     out_path = os.path.join(out_dir, 'confusion_blur_0_3_8_11_grid.png')
     fig.savefig(out_path, dpi=300)
     plt.close(fig)
     print(f"Saved grid of confusion matrices -> {out_path}")
-
 
 
 
