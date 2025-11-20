@@ -2,11 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+
+
 # Debug: print where file will be saved
 print("Current working directory:", os.getcwd())
 
-# Blur levels 0–11
-blur_levels = np.arange(12)
+# Sigma values for 12 blur levels
+num_levels = 12
+sigmas = np.linspace(0.0, 4.0, num_levels)
 
 # mAP values
 general_map = [0.995777, 0.995713, 0.981622, 0.953830, 0.919275, 0.869777, 0.817436, 0.761823, 0.699140, 0.635385, 0.587840, 0.554515]
@@ -16,10 +19,10 @@ features_map = [0.898982, 0.892999, 0.764957, 0.628311, 0.508676, 0.394489, 0.31
 
 plt.figure(figsize=(10, 6), dpi=300)
 
-plt.plot(blur_levels, general_map, marker="o", label="General Class")
-plt.plot(blur_levels, subclass_map, marker="o", label="Sub-Class")
-plt.plot(blur_levels, color_map, marker="o", label="Color")
-plt.plot(blur_levels, features_map, marker="o", label="Features")
+plt.plot(sigmas, general_map, marker="o", label="General Class")
+plt.plot(sigmas, subclass_map, marker="o", label="Sub-Class")
+plt.plot(sigmas, color_map, marker="o", label="Color")
+plt.plot(sigmas, features_map, marker="o", label="Features")
 
 plt.xlabel("Blur Level")
 plt.ylabel("Grouped mAP")
