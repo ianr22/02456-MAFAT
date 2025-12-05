@@ -5,16 +5,18 @@ import numpy as np
 from analyze_score import compute_ap_for_label, compute_group_map
 
 
+# ------------------------------
+# Load predictions JSON
+# ------------------------------
 def load_predictions(json_path):
-    """Load predictions_with_scores.json"""
     with open(json_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
+# ------------------------------
+# Compute mAP and grouped mAP
+# ------------------------------
 def compute_metrics(records):
-    """Compute total mAP and grouped mAP using analyze_score logic."""
-
-    # Collect all labels
     all_labels = set()
     for rec in records:
         all_labels.update(rec["pred_scores"].keys())
@@ -29,11 +31,13 @@ def compute_metrics(records):
 
     total_map = float(np.mean(list(aps.values()))) if aps else 0.0
 
-    # Groups
+    # Group labels
     general_class_labels = [lbl for lbl in all_labels if lbl.startswith("general_class_")]
     sub_class_labels     = [lbl for lbl in all_labels if lbl.startswith("sub_class_")]
     color_labels         = [lbl for lbl in all_labels if lbl.startswith("color_")]
-    feature_labels       = [
+
+    # Features = everything else
+    feature_labels = [
         lbl for lbl in all_labels
         if lbl not in general_class_labels
         and lbl not in sub_class_labels
@@ -44,15 +48,16 @@ def compute_metrics(records):
         "general": compute_group_map(general_class_labels, aps),
         "subclass": compute_group_map(sub_class_labels, aps),
         "color": compute_group_map(color_labels, aps),
-        "features": compute_group_map(feature_labels, aps),
+        "features": compute_group_map(feature_labels, aps)
     }
 
     return total_map, grouped
 
 
+# ------------------------------
+# Process all blur_* folders
+# ------------------------------
 def process_prediction_folder(base_dir):
-    """Scan blur folders and compute mAP for each."""
-
     base_dir = Path(base_dir)
     results = {}
 
@@ -66,11 +71,11 @@ def process_prediction_folder(base_dir):
 
             print(f"Processing: {subdir.name}")
 
-            # Load json and compute metrics
+            # Load and compute metrics
             records = load_predictions(json_path)
             total, grouped = compute_metrics(records)
 
-            # blur_0_run_142623 -> blur0
+            # blur_0_run_142627 -> blur0
             blur_level = subdir.name.split("_")[1]
             blur_key = f"blur{blur_level}"
 
@@ -80,19 +85,25 @@ def process_prediction_folder(base_dir):
                     "general": grouped["general"],
                     "subclass": grouped["subclass"],
                     "color": grouped["color"],
-                    "features": grouped["features"],
+                    "features": grouped["features"]
                 }
             }
 
     return results
 
 
+# ------------------------------
+# Save JSON
+# ------------------------------
 def save_json(data, output_path):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
     print(f"Saved: {output_path}")
 
 
+# ------------------------------
+# MAIN
+# ------------------------------
 if __name__ == "__main__":
     prediction_folders = [
         "results/balanced_prediction",
@@ -105,4 +116,3 @@ if __name__ == "__main__":
 
         out_name = Path(folder).name + "_scores.json"
         save_json(result, out_name)
-
