@@ -1,0 +1,178 @@
+========================================================================
+SLURM Job Information
+========================================================================
+Job ID: 142619
+Job Name: pred_blur10
+Node: fal016
+Start Time: Thu Dec  4 04:10:42 PM EST 2025
+Working Directory: /home/ianr22/capstone_materials/bev_implementation/02456-MAFAT
+CPUs per task: 1
+========================================================================
+
+Loading modules...
+
+Installing required packages...
+
+Loaded modules:
+
+========================================================================
+Environment Information
+========================================================================
+Python version:
+Python 3.11.5
+
+PyTorch and CUDA information:
+PyTorch version: 2.1.2
+CUDA available: True
+CUDA version: 12.1
+GPU count: 1
+GPU 0: NVIDIA A30
+GPU Memory: 25.34 GB
+NumPy version: 1.25.1
+scikit-learn version: 1.3.1
+scikit-image version: 0.25.2
+matplotlib version: 3.10.7
+========================================================================
+
+========================================================================
+Prediction Configuration
+========================================================================
+Blur Level:     blur_10
+CSV Path:       ./dataset_v2/train.csv
+Image Path:     ./blurred_train_images_extreme/blur_10
+Model Path:     ./models/100epochs-CPAB-bceloss-lr0.01-momentum0.9.pt
+Output Dir:     ./results/training_prediction/blur_10_run_142619
+Batch Size:     64
+Threshold:      0.5
+Num Workers:    1
+========================================================================
+
+All input files verified
+
+========================================================================
+Starting Prediction Script
+========================================================================
+
+
+============================================================
+IMAGE CLASSIFICATION PREDICTION - HPC CLUSTER
+CPAB Model Inference Pipeline
+============================================================
+
+
+============================================================
+PREPROCESSING PIPELINE (CPAB Compatible)
+============================================================
+1. Load image as numpy array
+2. Normalize: divide by 255.0 → range [0, 1]
+3. Resize: skimage.transform.resize
+   - output_shape=(224, 224)
+   - mode='reflect'
+   - anti_aliasing=True
+4. Take first 3 channels [:, :, :3]
+5. Convert to torch tensor (float32)
+6. Permute: (H, W, C) → (C, H, W)
+7. NO ImageNet normalization applied
+============================================================
+
+Using GPU: NVIDIA A30
+CUDA Version: 12.1
+GPU Memory: 25.34 GB
+
+Output directory: /home/ianr22/capstone_materials/bev_implementation/02456-MAFAT/results/training_prediction/blur_10_run_142619
+Loading dataset...
+Dataset loaded: 11617 samples
+Number of classes: 37
+Image size: 224x224
+
+Creating dataloader...
+  Batch size: 64
+  Num workers: 1
+Dataloader created (182 batches)
+
+Loading model...
+Loading model from: ./models/100epochs-CPAB-bceloss-lr0.01-momentum0.9.pt
+  Format: Full model object (type: ResNet)
+  Model loaded successfully
+  Total parameters: 25,644,133
+  Trainable parameters: 25,644,133
+
+Running predictions...
+  Threshold: 0.5
+  Include scores: True
+
+Generating predictionswith scores...
+Saving 11617 predictions to results/training_prediction/blur_10_run_142619/predictions_with_scores.json
+Predictions saved successfully
+
+Sample prediction:
+{
+  "id": "16490_15036.png",
+  "pred_scores": {
+    "sunroof": 0.002286202972754836,
+    "luggage_carrier": 0.0034247473813593388,
+    "open_cargo_area": 0.0007072627195157111,
+    "enclosed_cab": 0.0026444420218467712,
+    "spare_wheel": 0.00014992672367952764,
+    "...": "32 more classes"
+  },
+  "pred": [
+    "general_class_small vehicle",
+    "sub_class_sedan"
+  ],
+  "true": [
+    "general_class_small vehicle",
+    "sub_class_sedan",
+    "color_black"
+  ]
+}
+Predictions complete!
+
+============================================================
+PREDICTION METRICS
+============================================================
+Total samples:     11617
+Exact matches:     1410 (12.14%)
+Partial matches:   10056 (86.56%)
+Partial + Exact:   11466 (98.70%)
+No matches:        151
+============================================================
+
+Metrics saved to: results/training_prediction/blur_10_run_142619/metrics.json
+
+Generating visualizations for 5 samples...
+Visualization saved to: results/training_prediction/blur_10_run_142619/predictions_visualization.png
+
+Plotting training history...
+
+==================================================
+TRAINING HISTORY SUMMARY
+==================================================
+Final Training Loss:   0.0069
+Final Validation Loss: 0.0805
+Final MAP:             0.8488
+==================================================
+
+Training history saved to: results/training_prediction/blur_10_run_142619/training_history.png
+
+============================================================
+PREDICTION COMPLETE!
+Results saved to: /home/ianr22/capstone_materials/bev_implementation/02456-MAFAT/results/training_prediction/blur_10_run_142619
+============================================================
+
+
+========================================================================
+Prediction completed successfully!
+
+Results location: ./results/training_prediction/blur_10_run_142619
+  - predictions.json
+  - metrics.json
+  - predictions_visualization.png
+  - training_history.png (if available)
+========================================================================
+
+End Time: Thu Dec  4 04:14:44 PM EST 2025
+Job Duration: 242 seconds
+Job finished!
+
+========================================================================

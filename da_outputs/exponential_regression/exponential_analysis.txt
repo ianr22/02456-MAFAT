@@ -1,0 +1,52 @@
+Loading data from: training_prediction_scores.json
+
+Analyzing category: total
+============================================================
+Exponential Decay    | R²=0.9754 | RMSE=0.0414 | AIC=-146.87
+
+Analyzing category: general
+============================================================
+Exponential Decay    | R²=0.9532 | RMSE=0.0419 | AIC=-146.32
+
+Analyzing category: subclass
+============================================================
+Exponential Decay    | R²=0.9601 | RMSE=0.0595 | AIC=-129.41
+
+Analyzing category: color
+============================================================
+Exponential Decay    | R²=0.9970 | RMSE=0.0098 | AIC=-215.78
+
+Analyzing category: features
+============================================================
+Exponential Decay    | R²=0.9737 | RMSE=0.0473 | AIC=-140.42
+
+================================================================================
+DECAY RATE ANALYSIS
+================================================================================
+
+Exponential Decay Rates (b parameter):
+------------------------------------------------------------
+1. features       : 0.5158 (half-life: σ=1.34)  (a=1.0488, c=-0.0288)
+2. total          : 0.4343 (half-life: σ=1.60)  (a=0.9444, c=0.0829)
+3. subclass       : 0.4342 (half-life: σ=1.60)  (a=1.0594, c=0.0022)
+4. color          : 0.2861 (half-life: σ=2.42)  (a=0.6854, c=0.2777)
+5. general        : 0.2574 (half-life: σ=2.69)  (a=0.7353, c=0.3477)
+
+Relative Decay Rates (compared to slowest):
+------------------------------------------------------------
+features       : 2.00x faster than slowest
+total          : 1.69x faster than slowest
+subclass       : 1.69x faster than slowest
+color          : 1.11x faster than slowest
+general        : 1.00x faster than slowest
+
+================================================================================
+CRITICAL BLUR LEVELS (mAP < 0.5)
+================================================================================
+total          : σ = 1.89 (Exponential Decay)
+general        : σ = 6.12 (Exponential Decay)
+subclass       : σ = 1.75 (Exponential Decay)
+color          : σ = 3.94 (Exponential Decay)
+features       : σ = 1.33 (Exponential Decay)
+
+Plot saved to: ./da_outputs/blur_analysis.png

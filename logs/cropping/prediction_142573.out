@@ -1,0 +1,27 @@
+========================================================================
+SLURM Job Information
+========================================================================
+Job ID: 142573
+Job Name: crop_images
+Node: fal001
+Start Time: Thu Dec  4 03:22:37 PM EST 2025
+Working Directory: /home/ianr22/capstone_materials/bev_implementation/02456-MAFAT
+CPUs per task: 1
+========================================================================
+
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: opencv-python in /home/ianr22/.local/lib/python3.12/site-packages (4.12.0.88)
+Collecting numpy<2.3.0,>=2 (from opencv-python)
+  Using cached numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (62 kB)
+Using cached numpy-2.2.6-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (16.5 MB)
+Installing collected packages: numpy
+Successfully installed numpy-2.2.6
+Defaulting to user installation because normal site-packages is not writeable
+Collecting tqdm
+  Downloading tqdm-4.67.1-py3-none-any.whl.metadata (57 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 57.7/57.7 kB 910.6 kB/s eta 0:00:00
+Downloading tqdm-4.67.1-py3-none-any.whl (78 kB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.5/78.5 kB 1.7 MB/s eta 0:00:00
+Installing collected packages: tqdm
+Successfully installed tqdm-4.67.1
+Processing complete. Metadata saved to processed_blurred_metadata.csv
