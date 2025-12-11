@@ -10,18 +10,13 @@ from PIL import Image
 # Config
 train_csv = './dataset_v2/train.csv'
 image_root = './dataset_v2/root/train'
-output_root = './blurred_train_images_12'
+output_root = './blurred_train_images_demo'
 os.makedirs(output_root, exist_ok=True)
 
 
 # Blur levels
-num_levels = 12                 # blur_0 → blur_11
-sigmas = np.linspace(0.0, 4.0, num_levels)
-
-
-# Metadata
-metadata_records = []
-
+num_levels = 2                 # blur_0 → blur_11
+sigmas = np.linspace(0.0, 2.0, num_levels)
 
 # FUNCTIONS
 def crop_polygon(image, coords):
@@ -134,26 +129,6 @@ def main():
             if not success:
                 print(f"Failed to save {save_path}")
                 continue
-
-
-            # Add metadata record
-            metadata_records.append({
-                "image_id": image_id,
-                "tag_id": tag_id,
-                "filename": filename,
-                "blur_level": i,
-                "sigma": float(sigma),
-                "output_path": save_path
-            })
-
-
-    # Save metadata
-    df_out = pd.DataFrame(metadata_records)
-    df_out.to_csv("processed_blurred_metadata.csv", index=False)
-
-
-    print("Processing complete. Metadata saved to processed_blurred_metadata.csv")
-
 
 
 

@@ -1,8 +1,7 @@
 """
 Command-line interface for running predictions on HPC cluster
-Ensures CPAB preprocessing pipeline is used correctly
 """
-
+# IMPORTS
 import argparse
 import torch
 import torch.nn as nn
@@ -13,7 +12,7 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 import sys
 
-# Import from experiment_runner module
+# From experiment_runner module
 from experiment_runner import (
     FineGrainedDataset,
     FineGrainedClassifier,
@@ -24,7 +23,7 @@ from experiment_runner import (
     Net    # Legacy class needed for unpickling old models
 )
 
-
+# FUNCTIONS 
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -94,6 +93,11 @@ def parse_args():
         help='Save predictions to JSON file'
     )
     parser.add_argument(
+        '--include_scores',
+        action='store_true',
+        help='Include prediction scores for all classes in JSON output'
+    )
+    parser.add_argument(
         '--plot_history',
         action='store_true',
         help='Plot training history (requires loss CSV files)'
@@ -115,31 +119,22 @@ def setup_output_dir(output_dir: str) -> Path:
     return output_path
 
 
-def save_predictions_to_file(predictions, labels, image_ids, output_path: Path):
-    """Save predictions to JSON file."""
-    results = []
-    for pred, label, img_id in zip(predictions, labels, image_ids):
-        results.append({
-            'image_id': img_id,
-            'predictions': pred,
-            'ground_truth': label
-        })
+def calculate_metrics(results):
+    """
+    Calculate and display prediction metrics from results with scores.
     
-    output_file = output_path / 'predictions.json'
-    with open(output_file, 'w') as f:
-        json.dump(results, f, indent=2)
-    
-    print(f"✓ Predictions saved to: {output_file}")
-
-
-def calculate_metrics(predictions, labels):
-    """Calculate and display prediction metrics."""
-    total_samples = len(predictions)
+    Args:
+        results: List of dicts with 'pred' and 'true' keys
+    """
+    total_samples = len(results)
     correct_predictions = 0
     partial_correct = 0
     
     # Calculate per-sample metrics
-    for pred, label in zip(predictions, labels):
+    for result in results:
+        pred = result['pred']
+        label = result['true']
+        
         if set(pred) == set(label):
             correct_predictions += 1
         elif len(set(pred) & set(label)) > 0:
@@ -225,11 +220,11 @@ def main():
             picturesize=args.image_size,
             transform=True
         )
-        print(f"✓ Dataset loaded: {len(dataset)} samples")
-        print(f"✓ Number of classes: {dataset.df.shape[1] - 1}")
-        print(f"✓ Image size: {args.image_size}x{args.image_size}")
+        print(f"Dataset loaded: {len(dataset)} samples")
+        print(f"Number of classes: {dataset.df.shape[1] - 1}")
+        print(f"Image size: {args.image_size}x{args.image_size}")
     except Exception as e:
-        print(f"✗ ERROR: Failed to load dataset: {e}")
+        print(f"ERROR: Failed to load dataset: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -246,7 +241,7 @@ def main():
         num_workers=args.num_workers,
         pin_memory=True if device.type == 'cuda' else False
     )
-    print(f"✓ Dataloader created ({len(dataloader)} batches)")
+    print(f"Dataloader created ({len(dataloader)} batches)")
     
     # Load model
     print(f"\nLoading model...")
@@ -261,7 +256,7 @@ def main():
         print(f"  Trainable parameters: {trainable_params:,}")
         
     except Exception as e:
-        print(f"✗ ERROR: Failed to load model: {e}")
+        print(f"ERROR: Failed to load model: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -269,32 +264,49 @@ def main():
     # Create predictor
     predictor = Predictor(model, dataset, device)
     
-    # Run predictions
-    print(f"\nRunning predictions...")
-    print(f"  Threshold: {args.threshold}")
-    try:
-        predictions, true_labels = predictor.predict_batch(dataloader, args.threshold)
-        print("✓ Predictions complete!")
-    except Exception as e:
-        print(f"✗ ERROR: Prediction failed: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    
-    # Calculate and display metrics
-    metrics = calculate_metrics(predictions, true_labels)
-    
-    # Save predictions
+    # Run predictions and save if requested
     if args.save_predictions:
-        print("Saving predictions to JSON...")
-        image_ids = [dataset.df['id'].iloc[i] for i in range(len(dataset))]
-        save_predictions_to_file(predictions, true_labels, image_ids, output_path)
+        print(f"\nRunning predictions...")
+        print(f"  Threshold: {args.threshold}")
+        print(f"  Include scores: {args.include_scores}")
         
-        # Also save metrics
-        metrics_file = output_path / 'metrics.json'
-        with open(metrics_file, 'w') as f:
-            json.dump(metrics, f, indent=2)
-        print(f"✓ Metrics saved to: {metrics_file}")
+        try:
+            # Determine output filename based on score inclusion
+            if args.include_scores:
+                output_file = output_path / 'predictions_with_scores.json'
+            else:
+                output_file = output_path / 'predictions.json'
+            
+            # Save predictions using the unified method
+            predictor.save_predictions_json(
+                dataloader, 
+                output_file,
+                threshold=args.threshold,
+                include_scores=args.include_scores
+            )
+            
+            # Load results for metrics calculation
+            with open(output_file, 'r') as f:
+                results = json.load(f)
+            
+            print("Predictions complete!")
+            
+            # Calculate and display metrics
+            metrics = calculate_metrics(results)
+            
+            # Save metrics
+            metrics_file = output_path / 'metrics.json'
+            with open(metrics_file, 'w') as f:
+                json.dump(metrics, f, indent=2)
+            print(f"Metrics saved to: {metrics_file}")
+            
+        except Exception as e:
+            print(f"ERROR: Prediction failed: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    else:
+        print("\nSkipping prediction save (use --save_predictions to enable)")
     
     # Visualize predictions
     if args.num_visualize > 0:
@@ -309,10 +321,10 @@ def main():
             import matplotlib.pyplot as plt
             viz_path = output_path / 'predictions_visualization.png'
             plt.savefig(viz_path, dpi=150, bbox_inches='tight')
-            print(f"✓ Visualization saved to: {viz_path}")
+            print(f"Visualization saved to: {viz_path}")
             plt.close()
         except Exception as e:
-            print(f"⚠ WARNING: Visualization failed: {e}")
+            print(f"WARNING: Visualization failed: {e}")
     
     # Plot training history
     if args.plot_history:
@@ -325,13 +337,13 @@ def main():
             import matplotlib.pyplot as plt
             history_path = output_path / 'training_history.png'
             plt.savefig(history_path, dpi=150, bbox_inches='tight')
-            print(f"✓ Training history saved to: {history_path}")
+            print(f"Training history saved to: {history_path}")
             plt.close()
         except FileNotFoundError as e:
-            print(f"⚠ WARNING: Could not find training history CSV files")
+            print(f"WARNING: Could not find training history CSV files")
             print(f"   Expected files: {model_base_path}Loss_train.csv, etc.")
         except Exception as e:
-            print(f"⚠ WARNING: Could not plot training history: {e}")
+            print(f"WARNING: Could not plot training history: {e}")
     
     print("\n" + "="*60)
     print("PREDICTION COMPLETE!")

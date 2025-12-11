@@ -1,9 +1,8 @@
 """
 Modern Image Classification Prediction Module
-Updated for current PyTorch practices with modular design
-CRITICAL: Preprocessing matches CPAB model exactly
 """
-
+# IMPORTS
+# PyTorch
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +10,9 @@ import torchvision.models as models
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
+# Images and Data
 import os
+import json
 import numpy as np
 import pandas as pd
 import random
@@ -21,7 +22,7 @@ from typing import Dict, List, Tuple, Optional
 import matplotlib.pyplot as plt
 from skimage.transform import resize
 
-
+# CLASSES
 class FineGrainedDataset(Dataset):
     """
     Dataset class for fine-grained image classification.
@@ -182,9 +183,12 @@ class Predictor:
         self.dataset = dataset
         self.device = device
         self.model.eval()
+        
+        # Get class names (excluding 'id' column)
+        self.class_names = [col for col in self.dataset.df.columns if col != 'id']
 
     def predict_batch(self, dataloader, threshold=0.5):
-        """Run predictions on entire dataloader."""
+        """Run predictions on entire dataloader (legacy method - no scores)."""
         predictions, true_labels = [], []
 
         with torch.no_grad():
@@ -196,16 +200,115 @@ class Predictor:
                 outputs = self.model(inputs)
 
                 for pred, label in zip(outputs, labels):
-                    pred_classes = [self.dataset.df.columns[i] 
+                    pred_classes = [self.class_names[i] 
                                     for i, p in enumerate(pred) 
-                                    if p > threshold and self.dataset.df.columns[i] != 'id']
-                    true_classes = [self.dataset.df.columns[i] 
+                                    if p > threshold]
+                    true_classes = [self.class_names[i] 
                                     for i, l in enumerate(label) 
-                                    if l > threshold and self.dataset.df.columns[i] != 'id']
+                                    if l > threshold]
                     predictions.append(pred_classes)
                     true_labels.append(true_classes)
 
         return predictions, true_labels
+    
+    def predict_batch_with_scores(self, dataloader, threshold=0.5):
+        """
+        Run predictions on entire dataloader with scores.
+        
+        Returns:
+            List of dicts with format:
+            {
+                'id': image_id,
+                'pred_scores': {class_name: score, ...},
+                'pred': [predicted_classes],
+                'true': [true_classes]
+            }
+        """
+        results = []
+
+        with torch.no_grad():
+            for batch in dataloader:
+                # CRITICAL: Permute from (B, H, W, C) to (B, C, H, W)
+                inputs = batch['image'].permute(0, 3, 1, 2).to(self.device, dtype=torch.float)
+                labels = batch['targets'].to(self.device, dtype=torch.float)
+                ids = batch['id']
+
+                outputs = self.model(inputs)
+
+                for sample_id, pred, label in zip(ids, outputs, labels):
+                    # Convert tensors to CPU and numpy
+                    pred_np = pred.cpu().numpy()
+                    label_np = label.cpu().numpy()
+                    
+                    # Create score dictionary for all classes
+                    pred_scores = {
+                        self.class_names[i]: float(pred_np[i])
+                        for i in range(len(self.class_names))
+                    }
+                    
+                    # Get predicted classes above threshold
+                    pred_classes = [
+                        self.class_names[i] 
+                        for i in range(len(self.class_names))
+                        if pred_np[i] > threshold
+                    ]
+                    
+                    # Get true classes
+                    true_classes = [
+                        self.class_names[i]
+                        for i in range(len(self.class_names))
+                        if label_np[i] > threshold
+                    ]
+                    
+                    results.append({
+                        'id': sample_id,
+                        'pred_scores': pred_scores,
+                        'pred': pred_classes,
+                        'true': true_classes
+                    })
+
+        return results
+    
+    def save_predictions_json(self, dataloader, output_path, threshold=0.5, include_scores=True):
+        """
+        Save predictions to JSON file.
+        
+        Args:
+            dataloader: DataLoader to run predictions on
+            output_path: Path to save JSON file
+            threshold: Classification threshold
+            include_scores: If True, include all class scores in output
+        """
+        print(f"\nGenerating predictions{'with scores' if include_scores else ''}...")
+        
+        if include_scores:
+            results = self.predict_batch_with_scores(dataloader, threshold)
+        else:
+            # Legacy format without scores
+            predictions, true_labels = self.predict_batch(dataloader, threshold)
+            results = []
+            for i, (pred, true) in enumerate(zip(predictions, true_labels)):
+                results.append({
+                    'id': self.dataset.df['id'].iloc[i],
+                    'pred': pred,
+                    'true': true
+                })
+        
+        print(f"Saving {len(results)} predictions to {output_path}")
+        with open(output_path, 'w') as f:
+            json.dump(results, f, indent=2)
+        
+        print(f"Predictions saved successfully")
+        
+        # Print sample
+        if results:
+            print("\nSample prediction:")
+            sample = results[0].copy()
+            # Truncate scores for display if present
+            if 'pred_scores' in sample and len(sample['pred_scores']) > 5:
+                displayed_scores = dict(list(sample['pred_scores'].items())[:5])
+                sample['pred_scores'] = {**displayed_scores, '...': f'{len(sample["pred_scores"]) - 5} more classes'}
+            print(json.dumps(sample, indent=2))
     
     def visualize_predictions(self, dataloader, num_samples=3, threshold=0.5):
         """Visualize predictions on sample images."""
@@ -221,10 +324,10 @@ class Predictor:
             axes = [axes]
 
         for i, (pred, label, img) in enumerate(zip(outputs[:num_samples], labels[:num_samples], inputs[:num_samples])):
-            pred_classes = [self.dataset.df.columns[j] for j, p in enumerate(pred) 
-                           if p > threshold and self.dataset.df.columns[j] != 'id']
-            true_classes = [self.dataset.df.columns[j] for j, l in enumerate(label) 
-                           if l > threshold and self.dataset.df.columns[j] != 'id']
+            pred_classes = [self.class_names[j] for j, p in enumerate(pred) 
+                           if p > threshold]
+            true_classes = [self.class_names[j] for j, l in enumerate(label) 
+                           if l > threshold]
 
             img_display = img.cpu().numpy().transpose(1, 2, 0)
             axes[i].imshow(img_display)
@@ -236,6 +339,7 @@ class Predictor:
         plt.show()
 
 
+# FUNCTIONS
 def fix_model_compatibility(model):
     """Fix compatibility issues with models from different PyTorch versions."""
     # Fix AvgPool2d divisor_override issue
@@ -278,7 +382,7 @@ def load_model(model_path: str, num_classes: int, device: torch.device) -> nn.Mo
     model = fix_model_compatibility(model)
     model = model.to(device)
     model.eval()
-    print("  ✓ Model loaded successfully")
+    print("  Model loaded successfully")
     return model
 
 
@@ -323,12 +427,13 @@ def plot_training_history(model_path: str):
     print("="*50 + "\n")
 
 
-# Example usage
+# Only run in interactive session
 if __name__ == "__main__":
     # Configuration
     CSV_PATH = './dataset_v2/train.csv'
     IMAGE_PATH = './dataset_v2/root/train/cropped/'
     MODEL_PATH = './models/100epochs-customloss-lr0.002-momentum0.9.pt'
+    OUTPUT_JSON = './predictions_with_scores.json'
     BATCH_SIZE = 64
     THRESHOLD = 0.5
     
@@ -360,6 +465,14 @@ if __name__ == "__main__":
     
     # Create predictor
     predictor = Predictor(model, dataset, device)
+    
+    # Save predictions with scores to JSON
+    predictor.save_predictions_json(
+        dataloader, 
+        OUTPUT_JSON, 
+        threshold=THRESHOLD,
+        include_scores=True
+    )
     
     # Visualize predictions
     print("\nVisualizing predictions...")

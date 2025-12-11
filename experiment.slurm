@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=training_images      # Job name
-#SBATCH --output=logs/prediction_%j.out  # Standard output log (%j = job ID)
-#SBATCH --error=logs/prediction_%j.err   # Standard error log
+#SBATCH --output=logs/model_runs/prediction_%j.out  # Standard output log (%j = job ID)
+#SBATCH --error=logs/model_runs/prediction_%j.err   # Standard error log
 #SBATCH --nodes=1                        # Number of nodes
 #SBATCH --ntasks=1                       # Number of tasks
 #SBATCH --cpus-per-task=1                # CPU cores per task
@@ -24,8 +24,8 @@ echo "========================================================================"
 echo ""
 
 # Create logs directory if it doesn't exist
-mkdir -p logs
-mkdir -p results
+mkdir -p logs/model_runs
+mkdir -p results/demo
 
 # Load required modules
 echo "Loading modules..."
@@ -87,14 +87,17 @@ if [ $NUM_WORKERS -lt 1 ]; then
     NUM_WORKERS=1
 fi
 
-# Configuration - ADJUST THESE PATHS FOR YOUR SETUP
-BLUR_LEVEL="Blur4"
-CSV_PATH="./dataset_v2/train.csv"
-IMAGE_PATH="./blurred_train_images/${BLUR_LEVEL}"
-MODEL_PATH="./models/100epochs-CPAB-bceloss-lr0.01-momentum0.9.pt"
-OUTPUT_DIR="./results/run_${SLURM_JOB_ID}"
-BATCH_SIZE=64
-THRESHOLD=0.5
+# Configuration - Can be overridden by environment variables
+# Default values (used if not passed from submit script)
+BLUR_LEVEL="${BLUR_LEVEL:-blur_0}"
+CSV_PATH="${CSV_PATH:-./dataset_v2/train.csv}"
+IMAGE_PATH="${IMAGE_PATH:-./blurred_train_images_12/${BLUR_LEVEL}}"
+MODEL_PATH="${MODEL_PATH:-./models/100epochs-CPAB-bceloss-lr0.01-momentum0.9.pt}"
+OUTPUT_DIR="./results/demo/${BLUR_LEVEL}_run_${SLURM_JOB_ID}"
+BATCH_SIZE="${BATCH_SIZE:-64}"
+THRESHOLD="${THRESHOLD:-0.5}"
+INCLUDE_SCORES="${INCLUDE_SCORES:-true}"  # Set to true to export all class scores, false for predictions only
+
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -129,7 +132,7 @@ if [ ! -f "$MODEL_PATH" ]; then
     exit 1
 fi
 
-echo "✓ All input files verified"
+echo "All input files verified"
 echo ""
 
 # Run the prediction script
@@ -148,6 +151,7 @@ python run_prediction.py \
     --num_workers $NUM_WORKERS \
     --num_visualize 5 \
     --save_predictions \
+    --include_scores \
     --plot_history
 
 # Capture exit code
@@ -158,7 +162,7 @@ echo "========================================================================"
 
 # Check if the script completed successfully
 if [ $EXIT_CODE -eq 0 ]; then
-    echo "✓ Prediction completed successfully!"
+    echo "Prediction completed successfully!"
     echo ""
     echo "Results location: $OUTPUT_DIR"
     echo "  - predictions.json"
@@ -166,7 +170,7 @@ if [ $EXIT_CODE -eq 0 ]; then
     echo "  - predictions_visualization.png"
     echo "  - training_history.png (if available)"
 else
-    echo "✗ Prediction failed with error code $EXIT_CODE"
+    echo "Prediction failed with error code $EXIT_CODE"
     echo ""
     echo "Check the error log: logs/prediction_${SLURM_JOB_ID}.err"
     exit $EXIT_CODE
@@ -179,14 +183,3 @@ echo "Job Duration: $SECONDS seconds"
 echo "Job finished!"
 echo ""
 echo "========================================================================"
-
-# Optional: Copy results to a permanent location
-# Uncomment and adjust the path as needed
-# FINAL_DEST="/path/to/permanent/storage/results_${SLURM_JOB_ID}"
-# echo "Copying results to: $FINAL_DEST"
-# mkdir -p "$FINAL_DEST"
-# cp -r "$OUTPUT_DIR"/* "$FINAL_DEST/"
-# echo "✓ Results copied"
-
-# Optional: Clean up if successful
-# rm -rf "$OUTPUT_DIR"
